@@ -1,0 +1,88 @@
+////LDAP Authentication in PowerBuilder Application
+
+
+////Global External Function
+Function ulong WNetGetUser(string lpname, ref string lpusername, ref ulong buflen) Library "mpr.dll" Alias For "WNetGetUserW"
+Function boolean LogonUser ( string lpszUsername, string lpszDomain, string lpszPassword, ulong dwLogonType, ulong dwLogonProvider, ref ulong phToken) Library "advapi32.dll" Alias For "LogonUserW"
+Function boolean CloseHandle (ulong hObject) Library "kernel32.dll"
+ 
+////Global Variable
+Constant ULong LOGON32_LOGON_NETWORK= 3
+Constant ULong LOGON32_PROVIDER_DEFAULT= 0
+ 
+////Instance Variable
+string is_domain
+
+ 
+////Code for Open event of Window
+
+String ls_userid 
+Ulong lul_result, lul_buflen 
+OleObject LDAP 
+ 
+//Get the username  
+lul_buflen = 32 
+ls_userid = Space(lul_buflen) 
+lul_result = WNetGetUser("", ls_userid, lul_buflen) 
+ 
+If lul_result = 0 Then 
+sle_userid.text = ls_userid 
+sle_password.SetFocus() 
+End If 
+ 
+//Get the Domain  
+LDAP = CREATE OleObject 
+LDAP.ConnectToNewObject( "ADSystemInfo" ) 
+is_domain = string(LDAP.DomainDNSName)
+ 
+////Code for Clicked event of “ok” Button
+
+String ls_user, ls_password
+ULong lul_token
+ 
+//Sets & Gets values
+ls_user = Trim(sle_userid.text)
+ls_password = Trim(sle_password.text)
+Boolean lbl_result
+ 
+//Error checking for usename
+if (isNull(ls_user) OR ls_user = "") then
+    MessageBox("LOGIN ERROR", "You must enter a User ID.", StopSign!)
+    sle_userid.SetFocus()
+    return
+end if
+ 
+//Error checking for password
+if (isNull(ls_password) OR ls_password = "") then
+    MessageBox("LOGIN ERROR", "You must enter a Password.", StopSign!)
+    sle_password.SetFocus()
+    return
+end if
+ 
+SetPointer(HourGlass!)
+ 
+//Determines is the User ID & Password are valid
+lbl_result = LogonUser( ls_user, is_domain, ls_password, LOGON32_LOGON_NETWORK, LOGON32_PROVIDER_DEFAULT, lul_token )
+ 
+ 
+//Valid
+If (lbl_result) Then
+    
+    //Close Handle of Token
+    CloseHandle(lul_token)
+   
+   //Trigger event to connect database
+   MessageBox("LOGIN", "You are in Application")
+    
+   //Close Parent Window
+    Close(window_name)
+ 
+Else
+                
+    //Close Handle of Token
+    CloseHandle(lul_token)
+    
+    //Error Message
+    MessageBox("LOGIN ERROR", "Invalid User ID or Password.", StopSign!)
+    
+End If
